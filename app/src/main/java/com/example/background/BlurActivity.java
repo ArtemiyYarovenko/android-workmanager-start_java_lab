@@ -52,6 +52,8 @@ public class BlurActivity extends AppCompatActivity {
         binding.goButton.setOnClickListener(view -> mViewModel.applyBlur(getBlurLevel()));
     }
 
+
+
     /**
      * Shows and hides views for when the Activity is processing an image
      */

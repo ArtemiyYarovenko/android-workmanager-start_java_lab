@@ -18,9 +18,12 @@ package com.example.background;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LiveData;
 import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkContinuation;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import android.app.Application;
@@ -31,7 +34,11 @@ import com.example.background.workers.BlurWorker;
 import com.example.background.workers.CleanupWorker;
 import com.example.background.workers.SaveImageToFileWorker;
 
+import java.util.List;
+
+import static com.example.background.Constants.IMAGE_MANIPULATION_WORK_NAME;
 import static com.example.background.Constants.KEY_IMAGE_URI;
+import static com.example.background.Constants.TAG_OUTPUT;
 
 public class BlurViewModel extends AndroidViewModel {
 
@@ -48,6 +55,13 @@ public class BlurViewModel extends AndroidViewModel {
         return builder.build();
     }
 
+    // New instance variable for the WorkInfo class
+    private LiveData<List<WorkInfo>> mSavedWorkInfo;
+
+    LiveData<List<WorkInfo>> getOutputWorkInfo() { return mSavedWorkInfo; }
+
+
+
 
 
     private WorkManager mWorkManager;
@@ -55,14 +69,18 @@ public class BlurViewModel extends AndroidViewModel {
     public BlurViewModel(@NonNull Application application) {
         super(application);
         mWorkManager = WorkManager.getInstance(application);
-        //...rest of the constructor
+        mSavedWorkInfo = mWorkManager.getWorkInfosByTagLiveData(TAG_OUTPUT);
     }
 
 
 
     void applyBlur(int blurLevel) {
         // Add WorkRequest to Cleanup temporary images
-        WorkContinuation continuation = mWorkManager.beginWith(OneTimeWorkRequest.from(CleanupWorker.class));
+        WorkContinuation continuation = mWorkManager
+                .beginUniqueWork(IMAGE_MANIPULATION_WORK_NAME,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequest.from(CleanupWorker.class));
+
         // Add WorkRequests to blur the image the number of times requested
         for (int i = 0; i < blurLevel; i++) {
             OneTimeWorkRequest.Builder blurBuilder =
@@ -77,6 +95,7 @@ public class BlurViewModel extends AndroidViewModel {
         }
         // Add WorkRequest to save the image to the filesystem
         OneTimeWorkRequest save = new OneTimeWorkRequest.Builder(SaveImageToFileWorker.class)
+                .addTag(TAG_OUTPUT) // This adds the tag
                 .build();
         continuation = continuation.then(save);
         // Actually start the work
