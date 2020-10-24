@@ -19,6 +19,7 @@ package com.example.background;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
@@ -75,6 +76,10 @@ public class BlurViewModel extends AndroidViewModel {
 
 
     void applyBlur(int blurLevel) {
+        Constraints constraints = new Constraints.Builder()
+                .setRequiresCharging(true)
+                .build();
+
         // Add WorkRequest to Cleanup temporary images
         WorkContinuation continuation = mWorkManager
                 .beginUniqueWork(IMAGE_MANIPULATION_WORK_NAME,
@@ -95,6 +100,7 @@ public class BlurViewModel extends AndroidViewModel {
         }
         // Add WorkRequest to save the image to the filesystem
         OneTimeWorkRequest save = new OneTimeWorkRequest.Builder(SaveImageToFileWorker.class)
+                .setConstraints(constraints) // This adds the Constraints
                 .addTag(TAG_OUTPUT) // This adds the tag
                 .build();
         continuation = continuation.then(save);
@@ -102,7 +108,17 @@ public class BlurViewModel extends AndroidViewModel {
         continuation.enqueue();
     }
 
+    // New instance variable for the WorkInfo
+    private Uri mOutputUri;
+    // Add a getter and setter for mOutputUri
+    void setOutputUri(String outputImageUri) {
+        mOutputUri = uriOrNull(outputImageUri);
+    }
+    Uri getOutputUri() { return mOutputUri; }
 
+    void cancelWork() {
+        mWorkManager.cancelUniqueWork(IMAGE_MANIPULATION_WORK_NAME);
+    }
 
 
 
